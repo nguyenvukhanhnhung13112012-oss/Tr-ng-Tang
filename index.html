@@ -1,1 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRÙNG TANG - Game Kinh Dị Dân Gian Việt Nam</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; user-select: none; }
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 20; }
+    .scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; opacity: 0.6; }
+    .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; box-shadow: 0 0 150px rgba(0,0,0,0.95) inset; pointer-events: none; z-index: 11; }
+    #jumpscare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: red; z-index: 100; display: none; justify-content: center; align-items: center; }
+  </style>
+</head>
+<body>
+  <div id="crosshair"></div>
+  <div class="scanline"></div>
+  <div class="vignette"></div>
 
+  <!-- Game HUD -->
+  <div id="hud" class="absolute top-4 left-4 z-20 text-red-600 font-bold space-y-2 text-sm bg-black/60 p-4 rounded border border-red-900/50">
+    <p>🏠 Phòng Trọ Số 4 - 41/3 Trần Duy Hưng (2022)</p>
+    <p>🔦 Đèn pin: <span id="flashlight-status" class="text-green-500">BẬT</span> (Phím F)</p>
+    <p>📋 Nhiệm vụ: <span id="objective" class="text-yellow-400">Kiểm tra bàn làm việc streamer</span></p>
+    <p>🎒 Hành trang: <span id="inventory-list" class="text-gray-300">Trống</span></p>
+  </div>
+
+  <div id="interact-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 text-yellow-300 font-bold text-lg bg-black/80 px-4 py-2 rounded border border-yellow-600 hidden">
+    Nhấn <span class="text-white border px-2 py-0.5 rounded bg-gray-800">E</span> để <span id="action-text">Tương tác</span>
+  </div>
+
+  <!-- Livestream Desktop Overlay -->
+  <div id="pc-screen" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-3/4 h-3/4 bg-slate-900 border-2 border-red-800 rounded p-4 text-white hidden flex flex-col">
+    <div class="flex justify-between border-b border-gray-700 pb-2 mb-2">
+      <span class="font-bold text-red-500">🔴 OBS Studio - Streamer: Đỗ Thế Dũng</span>
+      <button id="close-pc" class="text-red-500 hover:bg-red-900/40 px-2 rounded">✕ THOÁT [ESC]</button>
+    </div>
+    <div class="flex-1 flex gap-4">
+      <div class="w-2/3 bg-black border border-gray-800 rounded flex items-center justify-center relative overflow-hidden">
+        <div class="text-center">
+          <div class="text-5xl mb-2">📹</div>
+          <p class="text-xs text-gray-500">Camera phòng ngủ đang bật...</p>
+        </div>
+        <div class="absolute bottom-2 left-2 bg-red-600/80 text-xs px-2 py-1 rounded">LIVE | Viewers: 1,994</div>
+      </div>
+      <div class="w-1/3 bg-slate-950 border border-gray-800 rounded p-2 flex flex-col">
+        <h3 class="text-xs font-bold border-b border-gray-800 pb-1 text-gray-400">💬 KHUNG CHAT STREAM</h3>
+        <div id="chat-box" class="flex-1 overflow-y-auto text-xs space-y-2 mt-2 text-gray-300">
+          <p><span class="text-blue-400 font-bold">Fan_Gaming:</span> Dũng ơi review nhà trọ mới đi!</p>
+          <p><span class="text-green-400 font-bold">HaNoi_Boy:</span> Căn nhà số 4 này nghe bảo ám lắm bro...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Viewer -->
+  <div id="doc-viewer" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-1/2 bg-yellow-100/90 text-gray-900 p-6 rounded shadow-2xl border-4 border-yellow-900 hidden font-serif">
+    <h2 id="doc-title" class="text-2xl font-bold mb-4 border-b border-yellow-800 pb-2 text-center text-red-900">Trang Nhật Ký Đã Ố Vàng</h2>
+    <p id="doc-content" class="text-sm leading-relaxed mb-6"></p>
+    <button id="close-doc" class="w-full py-2 bg-yellow-900 text-yellow-100 font-bold rounded">Gấp Lại [ESC]</button>
+  </div>
+
+  <!-- Jumpscare Display -->
+  <div id="jumpscare">
+    <div class="text-center">
+      <h1 class="text-9xl font-extrabold text-black tracking-widest animate-ping">THẦN TRÙNG</h1>
+      <p class="text-2xl text-white mt-8 tracking-widest">LONG ĐÃ KHAI TÊN HỌ THÂN NHÂN...</p>
+    </div>
+  </div>
+
+  <script>
+    // System Variables
+    let scene, camera, renderer, flashlight;
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    let prevTime = performance.now();
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+
+    // Game Logic State
+    let itemsCollected = { incense: false, clayDoll: false, diary: false };
+    let altarLit = false;
+    let lookingAtObject = null;
+    let isOverlayOpen = false;
+
+    // Interactive Objects Registry
+    const interactables = [];
+
+    // Audio Synthetic Engine (No external asset dependency)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'click') {
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+      } else if (type === 'creak') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+      } else if (type === 'scare') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(

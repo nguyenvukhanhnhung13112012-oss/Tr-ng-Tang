@@ -1,1 +1,419 @@
 
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRÙNG TANG</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+#crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 23px;
+  transform: translate(-50%,-50%);
+  color: white;
+}
+#hint {
+  position: absolute;
+  bottom: 13%;
+  width: 100%;
+  text-align: center;
+  color: #ddd;
+  text-shadow: 0 2px 5px black;
+}
+#title {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  letter-spacing: 3px;
+  font-size: 20px;
+}
+#journal {
+  position: absolute;
+  right: 25px;
+  top: 25px;
+  font-size: 14px;
+}
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: radial-gradient(#24201c,#000 80%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+#overlay h1 {
+  font-size: clamp(40px,8vw,80px);
+  letter-spacing: 12px;
+  color: #a52b25;
+  text-shadow: 0 0 30px #8b0000;
+}
+#overlay button {
+  background: #680c0c;
+  color: white;
+  border: 1px solid #a44;
+  padding: 16px 35px;
+  cursor: pointer;
+  font-size: 16px;
+  letter-spacing: 3px;
+}
+#overlay p { color: #aaa; }
+#note {
+  display:none;
+  position:fixed;
+  z-index:4;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:min(420px,85vw);
+  background:#17130f;
+  border:1px solid #79634b;
+  padding:30px;
+  line-height:1.8;
+  pointer-events:auto;
+}
+#note button {
+  background:#4d1717;
+  color:white;
+  border:0;
+  padding:10px 20px;
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>TRÙNG TANG</h1>
+  <p>Đêm đầu tiên tại căn nhà số 4.</p>
+  <p>11/10/2022 — Hà Nội</p>
+  <button id="start">BƯỚC VÀO CĂN NHÀ</button>
+  <p>WASD: Di chuyển · Chuột: Quan sát · E: Tương tác · F: Đèn pin</p>
+</div>
+
+<div id="ui">
+  <div id="title">TRÙNG TANG</div>
+  <div id="journal">MANH MỐI: <span id="count">0</span></div>
+  <div id="crosshair">+</div>
+  <div id="hint">Nhấn E để tương tác</div>
+</div>
+
+<div id="note">
+  <h2 id="noteTitle">Manh mối</h2>
+  <p id="noteText"></p>
+  <button id="closeNote">ĐÓNG</button>
+</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080706);
+scene.fog = new THREE.FogExp2(0x080706,0.055);
+
+const camera = new THREE.PerspectiveCamera(
+  75, innerWidth/innerHeight, 0.1, 100
+);
+camera.position.set(0,1.7,4);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.8;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x55505a,0x17100a,0.35));
+
+const lamp = new THREE.PointLight(0xffb477,2,9);
+lamp.position.set(0,2.5,0);
+scene.add(lamp);
+
+const flashlight = new THREE.SpotLight(
+  0xffe6c4,0,18,Math.PI/8,0.4,1
+);
+flashlight.castShadow = true;
+camera.add(flashlight);
+flashlight.position.set(0,0,0);
+flashlight.target.position.set(0,0,-1);
+camera.add(flashlight.target);
+scene.add(camera);
+
+function material(color,roughness=0.9) {
+  return new THREE.MeshStandardMaterial({
+    color,roughness
+  });
+}
+
+function box(x,y,z,w,h,d,color) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(w,h,d),
+    material(color)
+  );
+  mesh.position.set(x,y,z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+// Sàn nhà
+box(0,-0.15,0,12,0.3,20,0x302b25);
+
+// Trần nhà
+box(0,3.3,0,12,0.2,20,0x171513);
+
+// Tường hành lang
+box(-3,1.5,0,0.2,3,20,0x40372e);
+box(3,1.5,0,0.2,3,20,0x40372e);
+box(0,1.5,-10,6,3,0.2,0x39312a);
+box(0,1.5,10,6,3,0.2,0x39312a);
+
+// Cửa phòng
+const door = box(2.88,1.1,-3,0.12,2.2,1.4,0x402516);
+let doorOpen = false;
+
+// Bóng đèn
+const bulb = new THREE.PointLight(0xffa45a,1.5,7);
+bulb.position.set(0,2.8,-1);
+scene.add(bulb);
+
+// Đồ nội thất
+box(-1.5,0.7,-6,1.7,1.4,0.8,0x382319);
+box(-1.5,1.45,-6,1.8,0.1,0.9,0x513322);
+box(1.3,0.45,2,1,0.9,0.7,0x30221a);
+
+// Tranh trên tường
+const painting = box(-2.88,1.8,-5,0.08,1.1,0.8,0x191515);
+
+// Vật phẩm và manh mối
+const objects = [];
+
+function createClue(name,description,x,y,z,color) {
+  const obj = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35,0.04,0.25),
+    material(color,0.8)
+  );
+  obj.position.set(x,y,z);
+  obj.castShadow = true;
+  scene.add(obj);
+  objects.push({mesh:obj,name,description,found:false});
+}
+
+createClue(
+  'Tờ giấy cũ',
+  'Ngày 11 tháng 10 năm 1994. Mai Linh và Long đã qua đời. Trong căn nhà này, có điều gì đó không được phép nhắc đến.',
+  -1.5,1.5,-6,0xd6c4a0
+);
+
+createClue(
+  'Bức thư',
+  'Mẹ nói rằng con phải quên Long đi. Nhưng con không thể. Con chỉ muốn được sống cuộc đời của mình.',
+  1.3,1,2,0xbda98a
+);
+
+// Ma
+const ghost = new THREE.Group();
+const ghostBody = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.42,1.1,5,12),
+  new THREE.MeshBasicMaterial({
+    color:0xaaa9a8,
+    transparent:true,
+    opacity:0.42
+  })
+);
+ghostBody.position.y=0.95;
+ghost.add(ghostBody);
+
+const eyeMat = new THREE.MeshBasicMaterial({color:0x990000});
+for(let x of [-0.14,0.14]) {
+  const eye = new THREE.Mesh(
+    new THREE.SphereGeometry(0.045,8,8),
+    eyeMat
+  );
+  eye.position.set(x,1.4,-0.34);
+  ghost.add(eye);
+}
+ghost.position.set(0,0,-7);
+ghost.visible=false;
+scene.add(ghost);
+
+// Điều khiển
+const keys={};
+let yaw=0,pitch=0;
+let flashlightOn=false;
+let collected=0;
+let started=false;
+let ghostTimer=0;
+let ghostActive=false;
+
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+
+  if(e.code==='KeyF') {
+    flashlightOn=!flashlightOn;
+    flashlight.intensity=flashlightOn?5:0;
+  }
+
+  if(e.code==='KeyE') interact();
+});
+
+addEventListener('keyup',e=>keys[e.code]=false);
+
+renderer.domElement.addEventListener('click',()=>{
+  if(started && !document.pointerLockElement)
+    renderer.domElement.requestPointerLock();
+});
+
+addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==renderer.domElement)return;
+  yaw-=e.movementX*0.002;
+  pitch-=e.movementY*0.002;
+  pitch=Math.max(-1.3,Math.min(1.3,pitch));
+  camera.rotation.set(pitch,yaw,0,'YXZ');
+});
+
+function interact() {
+  if(!started)return;
+
+  const direction=new THREE.Vector3();
+  camera.getWorldDirection(direction);
+
+  const ray=new THREE.Raycaster(
+    camera.position,direction,0,3
+  );
+
+  const targets=objects
+    .filter(o=>!o.found)
+    .map(o=>o.mesh);
+
+  const hit=ray.intersectObjects(targets);
+
+  if(hit.length) {
+    const item=objects.find(o=>o.mesh===hit[0].object);
+    item.found=true;
+    item.mesh.visible=false;
+    collected++;
+    document.getElementById('count').textContent=collected;
+    showNote(item.name,item.description);
+    return;
+  }
+
+  const doorDistance=camera.position.distanceTo(door.position);
+  if(doorDistance<3) {
+    doorOpen=!doorOpen;
+    door.rotation.y=doorOpen?-Math.PI/2:0;
+  }
+}
+
+function showNote(title,text) {
+  document.getElementById('noteTitle').textContent=title;
+  document.getElementById('noteText').textContent=text;
+  document.getElementById('note').style.display='block';
+  document.exitPointerLock?.();
+}
+
+document.getElementById('closeNote').onclick=()=>{
+  document.getElementById('note').style.display='none';
+};
+
+document.getElementById('start').onclick=()=>{
+  started=true;
+  document.getElementById('overlay').style.display='none';
+  renderer.domElement.requestPointerLock();
+};
+
+// AI xuất hiện
+function spawnGhost() {
+  if(ghostActive)return;
+  ghostActive=true;
+  ghost.visible=true;
+
+  const forward=new THREE.Vector3(
+    0,0,-1
+  ).applyAxisAngle(new THREE.Vector3(0,1,0),yaw);
+
+  ghost.position.copy(camera.position)
+    .add(forward.multiplyScalar(7));
+  ghost.position.y=0;
+  ghost.lookAt(camera.position.x,0,camera.position.z);
+
+  setTimeout(()=>{
+    ghost.visible=false;
+    ghostActive=false;
+  },3500);
+}
+
+// Vòng lặp game
+const clock=new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta=Math.min(clock.getDelta(),0.05);
+
+  if(started) {
+    const speed=3*delta;
+    const forward=new THREE.Vector3(
+      -Math.sin(yaw),0,-Math.cos(yaw)
+    );
+    const right=new THREE.Vector3(
+      Math.cos(yaw),0,-Math.sin(yaw)
+    );
+
+    if(keys.KeyW)camera.position.addScaledVector(forward,speed);
+    if(keys.KeyS)camera.position.addScaledVector(forward,-speed);
+    if(keys.KeyA)camera.position.addScaledVector(right,-speed);
+    if(keys.KeyD)camera.position.addScaledVector(right,speed);
+
+    camera.position.x=Math.max(-2.65,Math.min(2.65,camera.position.x));
+    camera.position.z=Math.max(-9.5,Math.min(9.5,camera.position.z));
+    camera.position.y=1.7;
+
+    const target=new THREE.Vector3();
+    camera.getWorldDirection(target);
+    flashlight.target.position.copy(camera.position).addScaledVector(target,5);
+    flashlight.position.copy(camera.position);
+
+    ghostTimer+=delta;
+    if(ghostTimer>22 && Math.random()<0.008) {
+      spawnGhost();
+      ghostTimer=0;
+    }
+
+    lamp.intensity=1.5+Math.sin(clock.elapsedTime*2)*0.2;
+    bulb.intensity=1.2+Math.random()*0.35;
+  }
+
+  renderer.render(scene,camera);
+}
+
+animate();
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
+

@@ -2,94 +2,119 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TRÙNG TANG - Game Kinh Dị Dân Gian Việt Nam</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #050505; font-family: 'Courier New', Courier, monospace; user-select: none; }
-    #crosshair { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 20; }
-    .scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; opacity: 0.6; }
-    .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; box-shadow: 0 0 150px rgba(0,0,0,0.95) inset; pointer-events: none; z-index: 11; }
-    #jumpscare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: red; z-index: 100; display: none; justify-content: center; align-items: center; }
+    body { margin: 0; overflow: hidden; background: #020202; font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none; }
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; border: 1px solid rgba(255,255,255,0.4); background: rgba(180, 20, 20, 0.6); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 20; }
+    
+    /* Hiệu ứng phim cổ Vintage & Âm u */
+    .scanline { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%); background-size: 100% 3px; pointer-events: none; z-index: 10; opacity: 0.75; }
+    .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; box-shadow: 0 0 180px rgba(0,0,0,0.98) inset; pointer-events: none; z-index: 11; }
+    .sepia-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(30, 15, 5, 0.15); pointer-events: none; z-index: 12; mix-blend-mode: color-burn; }
+    
+    #jumpscare { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0a0000; z-index: 100; display: none; justify-content: center; align-items: center; }
+    
+    /* Touch Controls cho điện thoại */
+    .touch-btn { width: 56px; height: 56px; background: rgba(20, 20, 20, 0.7); border: 1px solid rgba(180, 50, 50, 0.5); border-radius: 50%; color: #d1d5db; font-weight: bold; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; }
+    .touch-btn:active { background: rgba(180, 30, 30, 0.8); color: white; }
   </style>
 </head>
 <body>
   <div id="crosshair"></div>
   <div class="scanline"></div>
   <div class="vignette"></div>
+  <div class="sepia-overlay"></div>
 
   <!-- Game HUD -->
-  <div id="hud" class="absolute top-4 left-4 z-20 text-red-600 font-bold space-y-2 text-sm bg-black/60 p-4 rounded border border-red-900/50">
-    <p>🏠 Phòng Trọ Số 4 - 41/3 Trần Duy Hưng (2022)</p>
-    <p>🔦 Đèn pin: <span id="flashlight-status" class="text-green-500">BẬT</span> (Phím F)</p>
-    <p>📋 Nhiệm vụ: <span id="objective" class="text-yellow-400">Kiểm tra bàn làm việc streamer</span></p>
+  <div id="hud" class="absolute top-3 left-3 z-20 text-red-500 font-bold space-y-1 text-xs sm:text-sm bg-black/80 p-3 rounded border border-red-950/80 max-w-[280px] sm:max-w-md">
+    <p class="text-amber-600">🏠 Phòng Trọ Số 4 - 41/3 Trần Duy Hưng (2022)</p>
+    <p>📋 Nhiệm vụ: <span id="objective" class="text-yellow-500">Tìm kiếm các manh mối năm 1994</span></p>
     <p>🎒 Hành trang: <span id="inventory-list" class="text-gray-300">Trống</span></p>
   </div>
 
-  <div id="interact-prompt" class="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 text-yellow-300 font-bold text-lg bg-black/80 px-4 py-2 rounded border border-yellow-600 hidden">
-    Nhấn <span class="text-white border px-2 py-0.5 rounded bg-gray-800">E</span> để <span id="action-text">Tương tác</span>
+  <!-- Prompt Tương tác Mobile/PC -->
+  <div id="interact-prompt" class="absolute bottom-24 sm:bottom-20 left-1/2 -translate-x-1/2 z-20 text-yellow-400 font-bold text-sm sm:text-lg bg-black/90 px-4 py-2 rounded-full border border-yellow-700/60 hidden shadow-lg text-center cursor-pointer">
+    👉 Chạm/Nhấn để <span id="action-text" class="text-white underline">Tương tác</span>
   </div>
 
-  <!-- Livestream Desktop Overlay -->
-  <div id="pc-screen" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-3/4 h-3/4 bg-slate-900 border-2 border-red-800 rounded p-4 text-white hidden flex flex-col">
-    <div class="flex justify-between border-b border-gray-700 pb-2 mb-2">
-      <span class="font-bold text-red-500">🔴 OBS Studio - Streamer: Đỗ Thế Dũng</span>
-      <button id="close-pc" class="text-red-500 hover:bg-red-900/40 px-2 rounded">✕ THOÁT [ESC]</button>
+  <!-- Điều khiển Cảm ứng trên Điện thoại -->
+  <div id="mobile-controls" class="absolute bottom-4 left-4 right-4 z-20 flex justify-between items-end pointer-events-none">
+    <!-- Cụm D-Pad di chuyển -->
+    <div class="grid grid-cols-3 gap-2 pointer-events-auto">
+      <div></div>
+      <div id="btn-up" class="touch-btn">▲</div>
+      <div></div>
+      <div id="btn-left" class="touch-btn">◄</div>
+      <div id="btn-down" class="touch-btn">▼</div>
+      <div id="btn-right" class="touch-btn">►</div>
     </div>
-    <div class="flex-1 flex gap-4">
-      <div class="w-2/3 bg-black border border-gray-800 rounded flex items-center justify-center relative overflow-hidden">
+    
+    <!-- Cụm phím Bật đèn / Tương tác -->
+    <div class="flex flex-col gap-2 pointer-events-auto">
+      <div id="btn-flashlight" class="touch-btn bg-amber-950/60 text-amber-300 border-amber-800">🔦</div>
+      <div id="btn-action" class="touch-btn bg-red-950/80 text-red-300 border-red-800 hidden">✋</div>
+    </div>
+  </div>
+
+  <!-- Màn hình Máy Tính Livestream -->
+  <div id="pc-screen" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-11/12 sm:w-3/4 h-5/6 sm:h-3/4 bg-stone-950 border-2 border-red-900 rounded p-3 text-white hidden flex flex-col">
+    <div class="flex justify-between border-b border-stone-800 pb-2 mb-2">
+      <span class="font-bold text-red-600 text-xs sm:text-base">🔴 OBS Studio - Streamer: Đỗ Thế Dũng</span>
+      <button id="close-pc" class="text-red-500 bg-red-950/50 hover:bg-red-900 px-3 py-1 rounded text-xs">ĐÓNG [✕]</button>
+    </div>
+    <div class="flex-1 flex flex-col sm:flex-row gap-3 overflow-hidden">
+      <div class="w-full sm:w-2/3 bg-black border border-stone-800 rounded flex items-center justify-center relative min-h-[160px]">
         <div class="text-center">
-          <div class="text-5xl mb-2">📹</div>
-          <p class="text-xs text-gray-500">Camera phòng ngủ đang bật...</p>
+          <div class="text-4xl mb-1">📹</div>
+          <p class="text-xs text-stone-500">Tín hiệu Camera phòng trọ...</p>
         </div>
-        <div class="absolute bottom-2 left-2 bg-red-600/80 text-xs px-2 py-1 rounded">LIVE | Viewers: 1,994</div>
+        <div class="absolute bottom-2 left-2 bg-red-700/80 text-[10px] px-2 py-0.5 rounded font-mono">LIVE | Viewers: 1,994</div>
       </div>
-      <div class="w-1/3 bg-slate-950 border border-gray-800 rounded p-2 flex flex-col">
-        <h3 class="text-xs font-bold border-b border-gray-800 pb-1 text-gray-400">💬 KHUNG CHAT STREAM</h3>
-        <div id="chat-box" class="flex-1 overflow-y-auto text-xs space-y-2 mt-2 text-gray-300">
-          <p><span class="text-blue-400 font-bold">Fan_Gaming:</span> Dũng ơi review nhà trọ mới đi!</p>
-          <p><span class="text-green-400 font-bold">HaNoi_Boy:</span> Căn nhà số 4 này nghe bảo ám lắm bro...</p>
+      <div class="w-full sm:w-1/3 bg-stone-900 border border-stone-800 rounded p-2 flex flex-col flex-1">
+        <h3 class="text-xs font-bold border-b border-stone-800 pb-1 text-amber-600">💬 KHUNG CHAT LIVE</h3>
+        <div id="chat-box" class="flex-1 overflow-y-auto text-xs space-y-2 mt-2 text-stone-300 font-mono">
+          <p><span class="text-blue-400 font-bold">Fan_Gaming:</span> Dũng ơi review căn nhà trọ mới thuê đi!</p>
+          <p><span class="text-green-400 font-bold">HaNoi_Boy:</span> Ngách 41/3 Trần Duy Hưng này nghe bảo có thảm án năm 94...</p>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Document Viewer -->
-  <div id="doc-viewer" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-1/2 bg-yellow-100/90 text-gray-900 p-6 rounded shadow-2xl border-4 border-yellow-900 hidden font-serif">
-    <h2 id="doc-title" class="text-2xl font-bold mb-4 border-b border-yellow-800 pb-2 text-center text-red-900">Trang Nhật Ký Đã Ố Vàng</h2>
-    <p id="doc-content" class="text-sm leading-relaxed mb-6"></p>
-    <button id="close-doc" class="w-full py-2 bg-yellow-900 text-yellow-100 font-bold rounded">Gấp Lại [ESC]</button>
+  <div id="doc-viewer" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-11/12 sm:w-1/2 bg-amber-100/95 text-stone-900 p-5 rounded shadow-2xl border-4 border-amber-950 hidden font-serif">
+    <h2 id="doc-title" class="text-xl sm:text-2xl font-bold mb-3 border-b border-amber-900/40 pb-2 text-center text-red-950">Trang Nhật Ký Đã Ố Vàng</h2>
+    <p id="doc-content" class="text-xs sm:text-sm leading-relaxed mb-5 text-stone-800"></p>
+    <button id="close-doc" class="w-full py-2 bg-amber-950 text-amber-100 font-bold rounded text-sm">Gấp Lại [✕]</button>
   </div>
 
   <!-- Jumpscare Display -->
   <div id="jumpscare">
-    <div class="text-center">
-      <h1 class="text-9xl font-extrabold text-black tracking-widest animate-ping">THẦN TRÙNG</h1>
-      <p class="text-2xl text-white mt-8 tracking-widest">LONG ĐÃ KHAI TÊN HỌ THÂN NHÂN...</p>
+    <div class="text-center px-4">
+      <h1 class="text-6xl sm:text-9xl font-extrabold text-red-700 tracking-widest animate-pulse">THẦN TRÙNG</h1>
+      <p class="text-base sm:text-2xl text-stone-300 mt-6 tracking-widest font-mono">LONG ĐÃ KHAI TÊN HỌ THÂN NHÂN...</p>
+      <p class="text-xs sm:text-sm text-red-500 mt-2">Gia đình họ Phạm bị bắt hồn năm 1994</p>
     </div>
   </div>
 
   <script>
-    // System Variables
-    let scene, camera, renderer, flashlight;
+    let scene, camera, renderer, flashlight, ambientLight;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
 
-    // Game Logic State
     let itemsCollected = { incense: false, clayDoll: false, diary: false };
     let altarLit = false;
     let lookingAtObject = null;
     let isOverlayOpen = false;
 
-    // Interactive Objects Registry
     const interactables = [];
-
-    // Audio Synthetic Engine (No external asset dependency)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
+
+    // Âm thanh tổng hợp Web Audio API
     function playSound(type) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const osc = audioCtx.createOscillator();
@@ -98,17 +123,400 @@
       gain.connect(audioCtx.destination);
 
       if (type === 'click') {
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
       } else if (type === 'creak') {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        osc.frequency.setValueAtTime(60, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.6);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
       } else if (type === 'scare') {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(
+        osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+      }
+    }
+
+    function startAmbientDrone() {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(40, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+    }
+
+    // Khởi tạo Scene 3D
+    function init() {
+      scene = new THREE.Scene();
+      // Sương mù dày và tối sẫm màu rêu cổ
+      scene.fog = new THREE.FogExp2(0x030503, 0.22);
+
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.5, 3);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      // Đèn pin
+      flashlight = new THREE.SpotLight(0xffdfa0, 5, 10, Math.PI / 7, 0.6, 1.5);
+      flashlight.castShadow = true;
+      camera.add(flashlight);
+      flashlight.position.set(0, 0, 0);
+      flashlight.target.position.set(0, 0, -1);
+      camera.add(flashlight.target);
+      scene.add(camera);
+
+      // Ánh sáng nền u ảm sắc đỏ rêu
+      ambientLight = new THREE.AmbientLight(0x1a0a0a, 0.4);
+      scene.add(ambientLight);
+
+      buildCursedRoom();
+      setupTouchAndMouseControls();
+      window.addEventListener('resize', onWindowResize);
+
+      animate();
+    }
+
+    // Dựng căn phòng trọ 1994 ổ chuột u ám
+    function buildCursedRoom() {
+      // Texture giả lập tường gạch cũ ẩm mốc
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x222520, roughness: 0.95 });
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x120e0a, roughness: 0.85 });
+
+      // Sàn nhà
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 10), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Trần nhà
+      const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(8, 10), wallMat);
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.y = 2.8;
+      scene.add(ceiling);
+
+      // Các bức tường
+      const backWall = new THREE.Mesh(new THREE.PlaneGeometry(8, 2.8), wallMat);
+      backWall.position.set(0, 1.4, -5);
+      scene.add(backWall);
+
+      const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(8, 2.8), wallMat);
+      frontWall.position.set(0, 1.4, 5);
+      frontWall.rotation.y = Math.PI;
+      scene.add(frontWall);
+
+      const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 2.8), wallMat);
+      leftWall.position.set(-4, 1.4, 0);
+      leftWall.rotation.y = Math.PI / 2;
+      scene.add(leftWall);
+
+      const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 2.8), wallMat);
+      rightWall.position.set(4, 1.4, 0);
+      rightWall.rotation.y = -Math.PI / 2;
+      scene.add(rightWall);
+
+      // --- NỘI THẤT & CÁC VẬT THỂ TƯƠNG TÁC ---
+
+      // 1. Bàn Thờ Họ Phạm (Đỏ u mịch)
+      const altarGroup = new THREE.Group();
+      const altarTable = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1, 0.8), new THREE.MeshStandardMaterial({ color: 0x1f0505, roughness: 0.7 }));
+      altarTable.position.set(0, 0.5, -4.5);
+      altarTable.castShadow = true;
+      altarGroup.add(altarTable);
+
+      const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.1, 0.22), new THREE.MeshStandardMaterial({ color: 0x6b5323, metalness: 0.5 }));
+      burner.position.set(0, 1.11, -4.5);
+      altarGroup.add(burner);
+
+      // Đèn thờ đỏ nhấp nháy ma quái
+      const altarLight = new THREE.PointLight(0xff0000, 2, 3.5);
+      altarLight.position.set(0, 1.3, -4.3);
+      altarGroup.add(altarLight);
+
+      scene.add(altarGroup);
+      altarTable.name = "Bàn Thờ Gia Đình Họ Phạm";
+      altarTable.userData = { type: 'altar' };
+      interactables.push(altarTable);
+
+      // 2. Máy Tính Streamer Đỗ Thế Dũng
+      const deskGroup = new THREE.Group();
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.75, 0.8), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
+      desk.position.set(-3, 0.375, -2);
+      deskGroup.add(desk);
+
+      const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.45, 0.05), new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0x001122 }));
+      monitor.position.set(-3, 0.98, -2);
+      deskGroup.add(monitor);
+      scene.add(deskGroup);
+
+      monitor.name = "Máy Tính Stream";
+      monitor.userData = { type: 'pc' };
+      interactables.push(monitor);
+
+      // 3. Máy Khâu Cổ Bà Dung (1994)
+      const sewingMachine = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.5), new THREE.MeshStandardMaterial({ color: 0x0d120a }));
+      sewingMachine.position.set(3, 0.4, -2);
+      sewingMachine.name = "Máy Khâu Cổ Năm 1994";
+      sewingMachine.userData = { type: 'sewing_machine' };
+      scene.add(sewingMachine);
+      interactables.push(sewingMachine);
+
+      // 4. Vật phẩm: Tò He Vỡ Của Long
+      const clayDoll = new THREE.Mesh(new THREE.DodecahedronGeometry(0.12), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+      clayDoll.position.set(3, 0.85, -2);
+      clayDoll.name = "Tò He Vỡ Của Long";
+      clayDoll.userData = { type: 'item_clay' };
+      scene.add(clayDoll);
+      interactables.push(clayDoll);
+
+      // 5. Vật phẩm: Bó Nhang Thơm
+      const incenseItem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3), new THREE.MeshStandardMaterial({ color: 0x991b1b }));
+      incenseItem.position.set(-3, 0.77, -1.8);
+      incenseItem.name = "Bó Nhang Thơm";
+      incenseItem.userData = { type: 'item_incense' };
+      scene.add(incenseItem);
+      interactables.push(incenseItem);
+
+      // 6. Vật phẩm: Trang Nhật Ký 1994
+      const diaryPage = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.3), new THREE.MeshStandardMaterial({ color: 0xd97706, side: THREE.DoubleSide }));
+      diaryPage.rotation.x = -Math.PI / 2;
+      diaryPage.position.set(0.5, 1.01, -4.5);
+      diaryPage.name = "Trang Nhật Ký Mai Linh (1994)";
+      diaryPage.userData = { type: 'diary' };
+      scene.add(diaryPage);
+      interactables.push(diaryPage);
+    }
+
+    // Xử lý Điều khiển Chuột / Cảm ứng Touch
+    function setupTouchAndMouseControls() {
+      let isTouching = false;
+      let touchStartX = 0, touchStartY = 0;
+
+      // Xoay góc nhìn bằng Vuốt màn hình / Di chuột
+      const handleMove = (clientX, clientY) => {
+        if (isOverlayOpen) return;
+        if (isTouching) {
+          const deltaX = clientX - touchStartX;
+          const deltaY = clientY - touchStartY;
+          camera.rotation.y -= deltaX * 0.004;
+          camera.rotation.x -= deltaY * 0.004;
+          camera.rotation.x = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, camera.rotation.x));
+          touchStartX = clientX;
+          touchStartY = clientY;
+        }
+      };
+
+      window.addEventListener('mousedown', (e) => {
+        if (e.target.tagName !== 'BUTTON' && !isOverlayOpen) {
+          isTouching = true;
+          touchStartX = e.clientX;
+          touchStartY = e.clientY;
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          startAmbientDrone();
+        }
+      });
+      window.addEventListener('mousemove', (e) => { if (isTouching) handleMove(e.clientX, e.clientY); });
+      window.addEventListener('mouseup', () => { isTouching = false; });
+
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1 && !isOverlayOpen) {
+          isTouching = true;
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          startAmbientDrone();
+        }
+      });
+      window.addEventListener('touchmove', (e) => {
+        if (isTouching && e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      });
+      window.addEventListener('touchend', () => { isTouching = false; });
+
+      // Gắn sự kiện nút Touch UI
+      const bindTouchBtn = (id, startFn, endFn) => {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', (e) => { e.preventDefault(); startFn(); });
+        el.addEventListener('touchend', (e) => { e.preventDefault(); endFn(); });
+        el.addEventListener('mousedown', (e) => { e.preventDefault(); startFn(); });
+        el.addEventListener('mouseup', (e) => { e.preventDefault(); endFn(); });
+      };
+
+      bindTouchBtn('btn-up', () => moveForward = true, () => moveForward = false);
+      bindTouchBtn('btn-down', () => moveBackward = true, () => moveBackward = false);
+      bindTouchBtn('btn-left', () => moveLeft = true, () => moveLeft = false);
+      bindTouchBtn('btn-right', () => moveRight = true, () => moveRight = false);
+
+      document.getElementById('btn-flashlight').addEventListener('click', toggleFlashlight);
+      document.getElementById('interact-prompt').addEventListener('click', interact);
+      document.getElementById('btn-action').addEventListener('click', interact);
+
+      document.getElementById('close-pc').addEventListener('click', closeOverlays);
+      document.getElementById('close-doc').addEventListener('click', closeOverlays);
+    }
+
+    function toggleFlashlight() {
+      flashlight.visible = !flashlight.visible;
+      playSound('click');
+    }
+
+    // Xử lý logic tương tác
+    function interact() {
+      if (!lookingAtObject) return;
+      const type = lookingAtObject.userData.type;
+
+      if (type === 'pc') {
+        openPC();
+      } else if (type === 'diary') {
+        openDoc("Trang Nhật Ký Ngày 11/10/1994", "Mẹ lại ép mình uống những viên thuốc không nhãn mác mà anh T.A đưa... Anh Long hứa sẽ đưa mình trốn khỏi ngách nhà này. Bàn tay anh nặn tò he dính đầy bột màu, nhưng đó là niềm hy vọng duy nhất của mình. Nếu bị Thần Trùng bắt được, không ai trong gia đình thoát khỏi...");
+        itemsCollected.diary = true;
+        updateInventory();
+      } else if (type === 'item_incense') {
+        itemsCollected.incense = true;
+        scene.remove(lookingAtObject);
+        updateInventory();
+        playSound('click');
+      } else if (type === 'item_clay') {
+        itemsCollected.clayDoll = true;
+        scene.remove(lookingAtObject);
+        updateInventory();
+        playSound('click');
+      } else if (type === 'sewing_machine') {
+        playSound('creak');
+        triggerHauntingEvent();
+      } else if (type === 'altar') {
+        if (itemsCollected.incense && itemsCollected.clayDoll) {
+          performAltarRitual();
+        } else {
+          alert("Bạn cần thu thập đủ Bó Nhang và Tò He Vỡ để thắp hương!");
+        }
+      }
+    }
+
+    function updateInventory() {
+      const list = [];
+      if (itemsCollected.incense) list.push("Bó Nhang");
+      if (itemsCollected.clayDoll) list.push("Tò He Vỡ");
+      if (itemsCollected.diary) list.push("Nhật Ký 1994");
+      document.getElementById('inventory-list').innerText = list.length > 0 ? list.join(", ") : "Trống";
+
+      if (itemsCollected.incense && itemsCollected.clayDoll) {
+        document.getElementById('objective').innerText = "Thắp hương và đặt Tò He lên Bàn Thờ";
+      }
+    }
+
+    function openPC() {
+      isOverlayOpen = true;
+      document.getElementById('pc-screen').classList.remove('hidden');
+      setTimeout(() => {
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML += `<p class="text-red-500 font-bold animate-pulse">🌾 [ThầnTrùng1994]: LONG ĐÃ KHAI TÊN ÔNG VŨ, BÀ DUNG VÀ MAI LINH...</p>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        playSound('scare');
+      }, 1500);
+    }
+
+    function openDoc(title, content) {
+      isOverlayOpen = true;
+      document.getElementById('doc-title').innerText = title;
+      document.getElementById('doc-content').innerText = content;
+      document.getElementById('doc-viewer').classList.remove('hidden');
+    }
+
+    function closeOverlays() {
+      isOverlayOpen = false;
+      document.getElementById('pc-screen').classList.add('hidden');
+      document.getElementById('doc-viewer').classList.add('hidden');
+    }
+
+    function triggerHauntingEvent() {
+      scene.fog.color.setHex(0x660000);
+      ambientLight.color.setHex(0xff0000);
+      setTimeout(() => {
+        scene.fog.color.setHex(0x030503);
+        ambientLight.color.setHex(0x1a0a0a);
+      }, 1200);
+    }
+
+    function performAltarRitual() {
+      altarLit = true;
+      playSound('scare');
+      document.getElementById('objective').innerText = "ÁC MỘNG TRÙNG TANG TẠM KHÉP LẠI...";
+      setTimeout(() => {
+        document.getElementById('jumpscare').style.display = 'flex';
+      }, 1200);
+    }
+
+    function checkRaycast() {
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const intersects = raycaster.intersectObjects(interactables);
+
+      if (intersects.length > 0 && intersects[0].distance < 2.6) {
+        lookingAtObject = intersects[0].object;
+        document.getElementById('interact-prompt').classList.remove('hidden');
+        document.getElementById('btn-action').classList.remove('hidden');
+        document.getElementById('action-text').innerText = lookingAtObject.name;
+      } else {
+        lookingAtObject = null;
+        document.getElementById('interact-prompt').classList.add('hidden');
+        document.getElementById('btn-action').classList.add('hidden');
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Vòng lặp Render & Di chuyển
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+
+      if (!isOverlayOpen) {
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+
+        direction.z = Number(moveForward) - Number(moveBackward);
+        direction.x = Number(moveRight) - Number(moveLeft);
+        direction.normalize();
+
+        if (moveForward || moveBackward) velocity.z -= direction.z * 10.0 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 10.0 * delta;
+
+        camera.translateX(-velocity.x * delta);
+        camera.translateZ(velocity.z * delta);
+        camera.position.y = 1.5;
+
+        // Giới hạn di chuyển trong phòng trọ
+        camera.position.x = Math.max(-3.5, Math.min(3.5, camera.position.x));
+        camera.position.z = Math.max(-4.5, Math.min(4.5, camera.position.z));
+
+        checkRaycast();
+      }
+
+      prevTime = time;
+      renderer.render(scene, camera);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
